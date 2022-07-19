@@ -59,7 +59,7 @@ def activate_session(url,options):
     try:
         driver = webdriver.Chrome(chrome_options=options)
     except:
-        driver = webdriver.Chrome(ChromeDriverManager.install(),chrome_options=options)
+        driver = webdriver.Chrome(ChromeDriverManager().install(),chrome_options=options)
     driver.get(url)
     html = driver.page_source
     logging.info("driver for %s is opened" % url)
@@ -242,7 +242,7 @@ def check_worksheet(workbookpath, sheetname, config):
    
     logging.info("workbook_check_finish")
 
-def adjust_excel_width(workbookpath,sheetname):
+def adjust_excel_width(workbookpath,sheetname,firstcolumnwidth=0):
     logging.info("Adjust worksheet column start!")
     excel = win32.dynamic.Dispatch('Excel.Application')
     try:
@@ -254,6 +254,8 @@ def adjust_excel_width(workbookpath,sheetname):
     try:
         ws = wb.Worksheets(sheetname)
         ws.Columns.AutoFit()
+        if firstcolumnwidth > 0:
+            ws.Columns('A').ColumnWidth = firstcolumnwidth
         wb.Close(True)
         logging.info(workbookpath + " WorkSheet: " + sheetname + " Adjusted")
     except Exception as e:
@@ -350,7 +352,7 @@ def main_logic(config):
             check_worksheet(filePath, sheetname, config)
             write_to_excel(mylist, filePath, sheetname, config)
             #adjust width
-            adjust_excel_width(filePath,sheetname)
+            adjust_excel_width(filePath,sheetname,15)
 
         elif config == 1:
             #gather all urls & lists
@@ -393,7 +395,7 @@ def main_logic(config):
             check_worksheet(filePath_Rating, sheetname, 0)
             write_to_excel(ratinglist, filePath_Rating, sheetname, 0)
             #adjust width
-            adjust_excel_width(filePath_Rating,sheetname)  
+            adjust_excel_width(filePath_Rating,sheetname,15)  
 
             #create df review list
             reviewlist = []
