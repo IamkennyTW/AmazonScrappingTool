@@ -204,8 +204,8 @@ def creat_url_list(merchandiseurl, config, numberofpages=0, basepostfix= ['ie=UT
     return starsurl, counterlist, pagenumlist
 
 #...............EXCELTOOL_PANDAS....................
-def add_worksheet(workbookpath, sheetname, config):
-    logging.info("NewSheet created start... "+sheetname)
+def add_worksheet(workbookpath, sheetsname, config):
+    logging.info("Open Excel File: "+workbookpath)
     excel = win32.dynamic.Dispatch('Excel.Application')
     try:
         wb = excel.Workbooks.Open(workbookpath)
@@ -213,7 +213,7 @@ def add_worksheet(workbookpath, sheetname, config):
         # determine if application is a script file or frozen exe
         relativepath = os.path.dirname(sys.executable)+'/'+workbookpath if getattr(sys, 'frozen', False) else os.path.dirname(__file__) + '/' + workbookpath
         wb = excel.Workbooks.Open(relativepath)
-
+    
     if config == 0:
         templatepath = os.path.dirname(sys.executable)+'/'+'Template_Rating.xlsx' if getattr(sys, 'frozen', False) else os.path.dirname(__file__) + '/' + 'Template_Rating.xlsx'
     elif config == 1:
@@ -221,28 +221,29 @@ def add_worksheet(workbookpath, sheetname, config):
 
     wb1 = excel.Workbooks.Open(templatepath)
     templateWS = wb1.Worksheets(1)
-    templateWS.Copy(Before=None, After=wb.Sheets(wb.Sheets.Count))
-    wb.Sheets('Template').Name = sheetname
+    for sheet in sheetsname:
+        logging.info("NewSheet created start... "+sheet)
+        templateWS.Copy(Before=None, After=wb.Sheets(wb.Sheets.Count))
+        wb.Sheets('Template').Name = sheet
+        logging.info("NewSheet createded... "+sheet)
 
     wb.Close(True)
-    wb1.Close(True)
-    logging.info("NewSheet createded = "+sheetname)
+    wb1.Close(True)    
     excel.Application.Quit()
 
-def check_worksheet(workbookpath, sheetname, config):
-    logging.info("workbook_check...")
+def check_worksheet(workbookpath, sheetsname):
+    logging.info("Workbook_checking...")
     wb = openpyxl.load_workbook(workbookpath)
 
-    if sheetname in wb.sheetnames:
-        wb.close()
-        pass
-    else:
-        wb.close()
-        add_worksheet(workbookpath, sheetname,config)
-   
-    logging.info("workbook_check_finish")
+    newsheet = []
+    for sheet in sheetsname:
+        if sheet not in wb.sheetnames:
+            newsheet.append(sheet)            
+    wb.close() 
+    logging.info("Workbook_check_finish")
+    return newsheet
 
-def adjust_excel_width(workbookpath,sheetname,firstcolumnwidth=0):
+def adjust_excel_width(workbookpath,sheetsname,firstcolumnwidth=0):
     logging.info("Adjust worksheet column start!")
     excel = win32.dynamic.Dispatch('Excel.Application')
     try:
@@ -252,12 +253,14 @@ def adjust_excel_width(workbookpath,sheetname,firstcolumnwidth=0):
         relativepath = os.path.dirname(sys.executable)+'/'+workbookpath if getattr(sys, 'frozen', False) else os.path.dirname(__file__) + '/' + workbookpath
         wb = excel.Workbooks.Open(relativepath)
     try:
-        ws = wb.Worksheets(sheetname)
-        ws.Columns.AutoFit()
-        if firstcolumnwidth > 0:
-            ws.Columns('A').ColumnWidth = firstcolumnwidth
-        wb.Close(True)
-        logging.info(workbookpath + " WorkSheet: " + sheetname + " Adjusted")
+        for sheet in sheetsname:
+            ws = wb.Worksheets(sheet)
+            ws.Columns.AutoFit()
+            if firstcolumnwidth > 0:
+                ws.Columns('A').ColumnWidth = firstcolumnwidth
+            logging.info(workbookpath + " WorkSheet: " + sheet + " Adjusted")
+
+        wb.Close(True)        
     except Exception as e:
         logging.error(e)
 
@@ -326,13 +329,23 @@ def main_logic(config):
 
     if config == 0:
         filePath = evaluate_path('Rating')
+        newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
+        add_worksheet(filePath,newsheetlist,config)
+
     elif config == 1:
         filePath = evaluate_path('Review')
         numberofpages = evaluate_digit()
+        newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
+        add_worksheet(filePath,newsheetlist,config)
+
     elif config == 2:
         filePath_Rating = evaluate_path('Rating')
         filePath_Review = evaluate_path('Review')
         numberofpages = evaluate_digit()
+        newsheetlistRating = check_worksheet(filePath_Rating, list(configdata['merchandise']))
+        newsheetlistReview = check_worksheet(filePath_Review, list(configdata['merchandise']))
+        add_worksheet(filePath_Rating,newsheetlistRating,0)
+        add_worksheet(filePath_Review,newsheetlistReview,1)
     
     for i in range(len(configdata.index)):
         #calling scrapping function
@@ -349,10 +362,7 @@ def main_logic(config):
                 templist = list(executor.map(get_oneTofiveStars, starsurl))
             #Get all data to excel
             mylist = create_datalist(templist,config)
-            check_worksheet(filePath, sheetname, config)
             write_to_excel(mylist, filePath, sheetname, config)
-            #adjust width
-            adjust_excel_width(filePath,sheetname,15)
 
         elif config == 1:
             #gather all urls & lists
@@ -365,10 +375,7 @@ def main_logic(config):
                 templist = list(executor.map(get_comments, starsurl, counterlist))
             #Get all data to excel
             mylist = create_datalist(templist,config)
-            check_worksheet(filePath, sheetname, config)
-            write_to_excel(mylist, filePath, sheetname, config)
-            #adjust width
-            adjust_excel_width(filePath,sheetname)  
+            write_to_excel(mylist, filePath, sheetname, config) 
 
         elif config == 2:
             #gather all urls
@@ -392,21 +399,24 @@ def main_logic(config):
                 tempreviewavg += (i+1)*rating
             totalreviews = sum(ratinglist)
             ratinglist.extend([totalreviews,round(tempreviewavg/totalreviews,3)])
-            check_worksheet(filePath_Rating, sheetname, 0)
             write_to_excel(ratinglist, filePath_Rating, sheetname, 0)
-            #adjust width
-            adjust_excel_width(filePath_Rating,sheetname,15)  
 
             #create df review list
             reviewlist = []
             for data in temptuple:
                 reviewlist.extend(data[1])    
-            check_worksheet(filePath_Review, sheetname, 1)
             write_to_excel(reviewlist,filePath_Review,sheetname,1)
-            #adjust width
-            adjust_excel_width(filePath_Review,sheetname) 
 
         logging.info('Write Complete')
+
+    #adjust width
+    if config == 0:
+        adjust_excel_width(filePath,list(configdata['merchandise']),15)
+    elif config == 1:
+        adjust_excel_width(filePath,list(configdata['merchandise'])) 
+    elif config == 2:
+         adjust_excel_width(filePath_Rating,list(configdata['merchandise']),15)
+         adjust_excel_width(filePath_Review,list(configdata['merchandise']))
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
