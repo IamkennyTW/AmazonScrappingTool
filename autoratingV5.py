@@ -6,6 +6,12 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from datetime import date, datetime
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 import time, openpyxl, logging, os, pandas as pd, win32com.client as win32, concurrent.futures, multiprocessing, shutil, sys
 
 logging.basicConfig(filename='logfile.log',format='%(asctime)s (%(levelname)s) %(message)s',level=logging.INFO)
@@ -40,6 +46,41 @@ def evaluate_digit():
         digit = input('請檢查數值並重新輸入: ')
 
     return int(digit)
+
+def email_sender(receivers,filename='excel.xlsx'):
+    # Define email sender and receiver
+    email_sender = '13764905041@163.com'
+    email_password = 'QMUUQKIAIJTYUJFX'
+
+    # Set the subject and body of the email
+    subject = 'Autosend Email for Rating/Review files'
+
+    msg = MIMEMultipart()
+    msg['From'] = email_sender
+    msg['To'] = ", ".join(receivers)
+    msg['Subject'] = subject
+
+    body = 'Hi there, sending this email from AutoratingV5!'
+    msg.attach(MIMEText(body,'plain'))
+    if '\\' in filename:
+        filename =  filename[filename.rfind('\\')+1:]
+    attachment = open(filename,'rb')
+
+    part = MIMEBase('application','octet-stream')
+    part.set_payload((attachment).read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition',"attachment; filename= "+filename)
+
+    msg.attach(part)
+    # Add SSL (layer of security)
+    context = ssl.create_default_context()
+
+    # Log in and send the email
+    with smtplib.SMTP_SSL('smtp.163.com', 465, context=context) as smtp:
+        smtp.login(email_sender, email_password)
+        smtp.sendmail(email_sender, receivers, msg.as_string())
+
+    logging.info('Email sent to :' + str(receivers))
 
 #................CHROME....................
 def chrome_config():
@@ -412,11 +453,17 @@ def main_logic(config):
     #adjust width
     if config == 0:
         adjust_excel_width(filePath,list(configdata['merchandise']),15)
+        email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath)
     elif config == 1:
-        adjust_excel_width(filePath,list(configdata['merchandise'])) 
+        adjust_excel_width(filePath,list(configdata['merchandise']))
+        email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath) 
     elif config == 2:
          adjust_excel_width(filePath_Rating,list(configdata['merchandise']),15)
          adjust_excel_width(filePath_Review,list(configdata['merchandise']))
+         email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath_Rating)
+         email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath_Review)
+
+    
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
