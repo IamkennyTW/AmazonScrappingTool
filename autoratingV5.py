@@ -342,13 +342,16 @@ def write_to_excel(datalist, filePath, sheetname, config=0):
         df1 = pd.read_excel(filePath, sheet_name=sheetname)
         columnindex = df1.shape[1]
         del df1
-        today = date.today()
+        today = date.strftime(date.today(), "%m/%d/%Y")
+        today = today[1:] if today[0] == '0' else today
         df = pd.DataFrame({today:datalist})
     elif config == 1:
         df = pd.DataFrame(datalist)
 
     logging.info('Start Writing excel...')
     logging.info('\t'+ df.to_string().replace('\n', '\n\t'))
+
+    pd.io.formats.excel.ExcelFormatter.header_style = None
 
     if config == 0:
         with pd.ExcelWriter(filePath, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
