@@ -18,7 +18,8 @@ logging.basicConfig(filename='logfile.log',format='%(asctime)s (%(levelname)s) %
 
 #................General....................
 def evaluate_path(filename):
-    filePath = input('輸入 '+ filename +' 路徑: ')
+    #filePath = input('輸入 '+ filename +' 路徑: ')
+    filePath = filename
     valid_path = os.path.exists(filePath) and (filename in filePath)
 
     while True:
@@ -248,6 +249,7 @@ def creat_url_list(merchandiseurl, config, numberofpages=0, basepostfix= ['ie=UT
 def add_worksheet(workbookpath, sheetsname, config):
     logging.info("Open Excel File: "+workbookpath)
     excel = win32.dynamic.Dispatch('Excel.Application')
+    excel.Visible = True
     try:
         wb = excel.Workbooks.Open(workbookpath)
     except:
@@ -372,7 +374,7 @@ def main_logic(config):
         sys.exit()   
 
     if config == 0:
-        filePath = evaluate_path('Rating')
+        filePath = evaluate_path('Rating.xlsx')
         newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
         add_worksheet(filePath,newsheetlist,config)
 
@@ -471,26 +473,28 @@ def main_logic(config):
 if __name__ == "__main__":
     multiprocessing.freeze_support()
     try:
-        str_config = input("0:Rating Only 只生成星數表格\n1:Revew Only 只生成評論表格\n2:All 生成表格\n請選擇模式: ")
+        # str_config = input("0:Rating Only 只生成星數表格\n1:Revew Only 只生成評論表格\n2:All 生成表格\n請選擇模式: ")
 
-        while True:
-            if str_config == "0" or str_config == "1"  or str_config == "2" :
-                break
-            str_config = input("0:Rating Only 只生成星數表格\n1:Revew Only 只生成評論表格\n2:All 生成表格\n錯誤請重新選擇模式: ")
+        # while True:
+        #     if str_config == "0" or str_config == "1"  or str_config == "2" :
+        #         break
+        #     str_config = input("0:Rating Only 只生成星數表格\n1:Revew Only 只生成評論表格\n2:All 生成表格\n錯誤請重新選擇模式: ")
             
-        int_config = int(str_config)
+        int_config = 0 #int(str_config)
 
         #start Timing
         start_time = time.time()
         main_logic(int_config)
-
-        os.system('pause')
+        
+        #os.system('pause')
 
     except Exception as e:
         print(e)
         logging.error(e)
-        os.system('pause')
+        
+        #os.system('pause')
         raise(e)
+        
        
     logging.info("--- %s seconds ---" % (time.time() - start_time))
-
+    os._exit(0)
