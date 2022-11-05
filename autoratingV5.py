@@ -274,6 +274,34 @@ def add_worksheet(workbookpath, sheetsname, config):
     wb1.Close(True)    
     excel.Application.Quit()
 
+def save_hyperlink(workbookpath, sheetsname):
+    logging.info("Saving Hyperlink...")
+    excel = win32.dynamic.Dispatch('Excel.Application')
+    excel.Visible = True
+    try:
+        wb = excel.Workbooks.Open(workbookpath)
+    except:
+        # determine if application is a script file or frozen exe
+        relativepath = os.path.dirname(sys.executable)+'/'+workbookpath if getattr(sys, 'frozen', False) else os.path.dirname(__file__) + '/' + workbookpath
+        wb = excel.Workbooks.Open(relativepath)
+
+    # links = [x.Hyperlink.Address for x in ws.Shapes]
+    sheets_to_obj_dic = {}
+    for s in sheetsname:
+        ws = wb.Sheets[s]
+        obj_to_url = {}
+        for x in ws.Shapes:
+            try:
+                obj_to_url[x.ID] = x.Hyperlink.Address
+            except:
+                obj_to_url[x.ID] = ""
+
+        sheets_to_obj_dic[s] = obj_to_url
+    print(sheets_to_obj_dic)
+    return sheets_to_obj_dic
+
+
+
 def check_worksheet(workbookpath, sheetsname):
     logging.info("Workbook_checking...")
     wb = openpyxl.load_workbook(workbookpath)
@@ -286,7 +314,7 @@ def check_worksheet(workbookpath, sheetsname):
     logging.info("Workbook_check_finish")
     return newsheet
 
-def adjust_excel_width(workbookpath,sheetsname,firstcolumnwidth=0):
+def adjust_excel_width(workbookpath,sheetsname,hyperlink_dic,firstcolumnwidth=0):
     logging.info("Adjust worksheet column start!")
     excel = win32.dynamic.Dispatch('Excel.Application')
     try:
@@ -298,6 +326,11 @@ def adjust_excel_width(workbookpath,sheetsname,firstcolumnwidth=0):
     try:
         for sheet in sheetsname:
             ws = wb.Worksheets(sheet)
+            for x in ws.Shapes:
+                if hyperlink_dic[sheet][x.ID] == '':
+                    pass
+                else:
+                    x.Hyperlink.Address = hyperlink_dic[sheet][x.ID]                
             ws.Columns.AutoFit()
             if firstcolumnwidth > 0:
                 ws.Columns('A').ColumnWidth = firstcolumnwidth
@@ -376,6 +409,7 @@ def main_logic(config):
     if config == 0:
         filePath = evaluate_path('Rating.xlsx')
         newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
+        hyperlink_dic = save_hyperlink(filePath, list(configdata['merchandise']))
         add_worksheet(filePath,newsheetlist,config)
 
     elif config == 1:
@@ -457,7 +491,7 @@ def main_logic(config):
 
     #adjust width
     if config == 0:
-        adjust_excel_width(filePath,list(configdata['merchandise']),15)
+        adjust_excel_width(filePath,list(configdata['merchandise']),hyperlink_dic,15)
         email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath)
     elif config == 1:
         adjust_excel_width(filePath,list(configdata['merchandise']))
