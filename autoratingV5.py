@@ -277,7 +277,6 @@ def add_worksheet(workbookpath, sheetsname, config):
 def save_hyperlink(workbookpath, sheetsname):
     logging.info("Saving Hyperlink...")
     excel = win32.dynamic.Dispatch('Excel.Application')
-    excel.Visible = True
     try:
         wb = excel.Workbooks.Open(workbookpath)
     except:
@@ -297,22 +296,24 @@ def save_hyperlink(workbookpath, sheetsname):
                 obj_to_url[x.ID] = ""
 
         sheets_to_obj_dic[s] = obj_to_url
+
+    wb.Close(True)
     print(sheets_to_obj_dic)
     return sheets_to_obj_dic
-
-
 
 def check_worksheet(workbookpath, sheetsname):
     logging.info("Workbook_checking...")
     wb = openpyxl.load_workbook(workbookpath)
 
     newsheet = []
+    allsheetnames = wb.sheetnames
+
     for sheet in sheetsname:
         if sheet not in wb.sheetnames:
             newsheet.append(sheet)            
     wb.close() 
     logging.info("Workbook_check_finish")
-    return newsheet
+    return newsheet, allsheetnames
 
 def adjust_excel_width(workbookpath,sheetsname,hyperlink_dic,firstcolumnwidth=0):
     logging.info("Adjust worksheet column start!")
@@ -342,7 +343,7 @@ def adjust_excel_width(workbookpath,sheetsname,hyperlink_dic,firstcolumnwidth=0)
 
     excel.Application.Quit()
     
-def create_datalist(templist, config):
+def create_datalist(templist, filePath, sheetname,  config):
 
     logging.info('Assembly DataFrame...')
     datalist = []
@@ -350,11 +351,20 @@ def create_datalist(templist, config):
     #create df list
     if config == 0:
         datalist = templist    
-        tempreviewavg = 0
-        for i, rating in enumerate(datalist):
-            tempreviewavg += (i+1)*rating
-        totalreviews = sum(datalist)
-        datalist.extend([totalreviews, 0 if totalreviews == 0 else round(tempreviewavg/totalreviews,3)])
+        # tempreviewavg = 0
+        # for i, rating in enumerate(datalist):
+        #     tempreviewavg += (i+1)*rating
+        # totalreviews = sum(datalist)
+
+        df1 = pd.read_excel(filePath, sheet_name=sheetname)
+        columnindex = df1.shape[1]
+        columnletter = openpyxl.utils.cell.get_column_letter(columnindex+1)
+
+        sum_formula = '=SUM({}2:{}6)'.format(columnletter,columnletter)
+        average_formula = '=ROUND(SUMPRODUCT({}2:{}6,$B$2:$B$6)/SUM({}2:{}6),3)'.format(columnletter,columnletter,columnletter,columnletter)
+        datalist.extend([sum_formula,average_formula])
+        #datalist.extend([totalreviews, 0 if totalreviews == 0 else round(tempreviewavg/totalreviews,3)])
+
     elif config == 1:
         for data in templist:
             datalist.extend(data)
@@ -377,8 +387,8 @@ def write_to_excel(datalist, filePath, sheetname, config=0):
         df1 = pd.read_excel(filePath, sheet_name=sheetname)
         columnindex = df1.shape[1]
         del df1
-        today = date.strftime(date.today(), "%m/%d/%Y")
-        today = today[1:] if today[0] == '0' else today
+        today = date.strftime(date.today(), "%Y/%m/%d")
+        today = today.replace("/0", "/") 
         df = pd.DataFrame({today:datalist})
     elif config == 1:
         df = pd.DataFrame(datalist)
@@ -408,22 +418,22 @@ def main_logic(config):
 
     if config == 0:
         filePath = evaluate_path('Rating.xlsx')
-        newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
-        hyperlink_dic = save_hyperlink(filePath, list(configdata['merchandise']))
+        newsheetlist, allsheetnams = check_worksheet(filePath, list(configdata['merchandise']))
+        hyperlink_dic = save_hyperlink(filePath, allsheetnams)
         add_worksheet(filePath,newsheetlist,config)
 
     elif config == 1:
         filePath = evaluate_path('Review')
         numberofpages = evaluate_digit()
-        newsheetlist = check_worksheet(filePath, list(configdata['merchandise']))
+        newsheetlist, allsheetnams = check_worksheet(filePath, list(configdata['merchandise']))
         add_worksheet(filePath,newsheetlist,config)
 
     elif config == 2:
         filePath_Rating = evaluate_path('Rating')
         filePath_Review = evaluate_path('Review')
         numberofpages = evaluate_digit()
-        newsheetlistRating = check_worksheet(filePath_Rating, list(configdata['merchandise']))
-        newsheetlistReview = check_worksheet(filePath_Review, list(configdata['merchandise']))
+        newsheetlistRating, allsheetnams  = check_worksheet(filePath_Rating, list(configdata['merchandise']))
+        newsheetlistReview, allsheetnams  = check_worksheet(filePath_Review, list(configdata['merchandise']))
         add_worksheet(filePath_Rating,newsheetlistRating,0)
         add_worksheet(filePath_Review,newsheetlistReview,1)
     
@@ -441,7 +451,7 @@ def main_logic(config):
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 templist = list(executor.map(get_oneTofiveStars, starsurl))
             #Get all data to excel
-            mylist = create_datalist(templist,config)
+            mylist = create_datalist(templist, filePath, sheetname, config)
             write_to_excel(mylist, filePath, sheetname, config)
 
         elif config == 1:
@@ -491,14 +501,14 @@ def main_logic(config):
 
     #adjust width
     if config == 0:
-        adjust_excel_width(filePath,list(configdata['merchandise']),hyperlink_dic,15)
+        adjust_excel_width(filePath,allsheetnams,hyperlink_dic,15)
         email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath)
     elif config == 1:
-        adjust_excel_width(filePath,list(configdata['merchandise']))
+        adjust_excel_width(filePath,allsheetnams)
         email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath) 
     elif config == 2:
-         adjust_excel_width(filePath_Rating,list(configdata['merchandise']),15)
-         adjust_excel_width(filePath_Review,list(configdata['merchandise']))
+         adjust_excel_width(filePath_Rating,allsheetnams,15)
+         adjust_excel_width(filePath_Review,allsheetnams)
          email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath_Rating)
          email_sender(['vicky885365@gmail.com','kennyhuang14@yahoo.com.tw'],filePath_Review)
 
